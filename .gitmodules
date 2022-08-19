@@ -1,3 +1,9 @@
 [submodule "lib/Arduino-cmd-processing"]
 	path = lib/Arduino-cmd-processing
 	url = https://github.com/shadowroot/Arduino-cmd-processing.git
+[submodule "lib/RadioHead"]
+	path = lib/RadioHead
+	url = https://github.com/jecrespo/RadioHead.git
+[submodule "lib/RF433any"]
+	path = lib/RF433any
+	url = https://github.com/sebmillet/RF433any.git
