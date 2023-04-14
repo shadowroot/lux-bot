@@ -1,7 +1,7 @@
 #include <config.h>
 
 #ifndef STUCK_H
-
+#define STUCK_H
 class Stuck {
     //pullup resistor
     public:

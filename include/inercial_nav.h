@@ -3,11 +3,12 @@
 #include <MPU6050_light.h>
 #include <motor.h>
 #include <math.h>
+#include <stuck.h>
 
 #ifdef MPU_6050_USE
 
 #ifndef INERCIAL_NAV_H
-
+#define INERCIAL_NAV_H
 class Vector2D{
     public:
         Vector2D(float x, float y): x(x), y(y) {}
@@ -33,6 +34,7 @@ class Path{
         void addWaypoint(const WayPoint& waypoint);
         void addVector(const Vector2D& vector);
         Vector2D planPath(const WayPoint& waypoint);
+        WayPoint getCurrentWaypoint();
     private:
         int current_waypoint;
         //3600 seconds of waypoints
@@ -66,6 +68,10 @@ void Path::addVector(const Vector2D& vector){
   }
 }
 
+WayPoint Path::getCurrentWaypoint(){
+  return waypoint_next_second;
+}
+
 Vector2D Path::planPath(const WayPoint& waypoint){
   Vector2D vector(waypoint.x - waypoints[current_waypoint-1].x, waypoint.y - waypoints[current_waypoint-1].y);
   return vector;
@@ -82,12 +88,16 @@ class InercialNav{
         void loop_hook();
         Vector2D vectorTraveled();
         void moveForward(float distance);
+        void moveBackward(float distance);
         void rotateLeft(float angle);
         void rotateRight(float angle);
+        void rotate(float angle);
         void home();
         void travelToVector(const Vector2D& vector);
         double calcAngleDeg(const Vector2D& vector);
         double calcDistance(const Vector2D& vector);
+        int detectStuck();
+        void stuckAvoidance();
     private:
         MPU6050 mpu;
         float current_rotation_pitch;
@@ -104,11 +114,18 @@ class InercialNav{
         int update_rate_ms;
         float time_delta;
         float t_squared;
+        float minimal_move_distance;
         Path path;
         LRMotor motor;
+        #ifdef SWITCH_FRONT_LEFT_USE
+        Stuck stuck_front_left; //1
+        #endif
+        #ifdef SWITCH_FRONT_RIGHT_USE
+        Stuck stuck_front_right; //2
+        #endif
 };
 
-InercialNav::InercialNav(int update_rate_ms): mpu(Wire), update_rate_ms(update_rate_ms){
+InercialNav::InercialNav(int update_rate_ms): mpu(Wire), update_rate_ms(update_rate_ms), minimal_move_distance(0.1), stuck_front_left(12, "front_left"), stuck_front_right(13, "front_right"){
     time_delta = update_rate_ms/1000;
     t_squared = time_delta*time_delta;
 }
@@ -130,7 +147,12 @@ void InercialNav::setup_hook(){
     delay(1000);
     mpu.calcOffsets(true,true); // gyro and accelero
     Serial.println("Done!\n");
-
+    #ifdef SWITCH_FRONT_LEFT_USE
+      stuck_front_left.setup_hook();
+    #endif
+    #ifdef SWITCH_FRONT_RIGHT_USE
+      stuck_front_right.setup_hook();
+    #endif
 }
 
 void InercialNav::loop_hook(){
@@ -204,13 +226,55 @@ void InercialNav::rotateRight(float angle){
   motor.motor_stop();
 }
 
+void InercialNav::rotate(float angle){
+  if(angle > current_angle_x){
+    rotateLeft(angle);
+  }else{
+    rotateRight(angle);
+  }
+}
+
 void InercialNav::moveForward(float distance){
   motor.move_forward(255);
+  float current_distance = 0;
+  while(current_distance < distance){
+    stuckAvoidance();
+    loop_hook();
+    current_distance += calcDistance(vectorTraveled());
+  }
+  motor.motor_stop();
+}
+
+void InercialNav::stuckAvoidance(){
+    int stuck = detectStuck();
+    switch (stuck)
+    {
+      case 3:
+        moveBackward(minimal_move_distance);
+        break;
+      case 1:
+        //try rotate left
+        rotate(current_angle_x + 90);
+        break;
+      case 2:
+        //try rotate right
+        rotate(current_angle_x - 90);
+        break;
+      //default:
+      //  break;
+    }
+}
+
+
+
+void InercialNav::moveBackward(float distance){
+  motor.move_backward(255);
   float current_distance = 0;
   while(current_distance < distance){
     loop_hook();
     current_distance += calcDistance(vectorTraveled());
   }
+  motor.motor_stop();
 }
 
 double InercialNav::calcDistance(const Vector2D& vector){
@@ -242,7 +306,21 @@ void InercialNav::travelToVector(const Vector2D& vector){
   moveForward(calcDistance(vector));
 }
 
+int InercialNav::detectStuck(){
+  int stuck = 0;
+  #ifdef SWITCH_FRONT_LEFT_USE
+    if(stuck_front_left.is_stuck()){
+      stuck += 1;
+    }
+  #endif
+  #ifdef SWITCH_FRONT_RIGHT_USE
+    if(stuck_front_right.is_stuck()){
+      stuck += 2;
+    }
+  #endif
+  return stuck;
+}
 
-#endif
+#endif // INERCIAL_NAV_H
 
-#endif
+#endif // MPU_6050_USE

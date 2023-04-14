@@ -38,6 +38,13 @@ public:
     motor_left.run(FORWARD);
   }
 
+  void move_backward(int speed){
+    motor_right.setSpeed(speed);
+    motor_left.setSpeed(speed);
+    motor_right.run(BACKWARD);
+    motor_left.run(BACKWARD);
+  }
+
   void rotate_left(int speed){
     motor_right.setSpeed(speed);
     motor_left.setSpeed(speed);
