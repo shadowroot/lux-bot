@@ -31,6 +31,13 @@ public:
     motor_right.run(RELEASE);
   }
 
+  void move_forward(int speed){
+    motor_right.setSpeed(speed);
+    motor_left.setSpeed(speed);
+    motor_right.run(FORWARD);
+    motor_left.run(FORWARD);
+  }
+
   void rotate_left(int speed){
     motor_right.setSpeed(speed);
     motor_left.setSpeed(speed);
