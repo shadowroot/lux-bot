@@ -16,7 +16,8 @@ class Vector2D{
 };
 class WayPoint{
     public:
-        WayPoint(int x, float y): x(x), y(y) {}
+        WayPoint(): x(0), y(0) {}
+        WayPoint(float x, float y): x(x), y(y) {}
         void addVector(const Vector2D& vector);
         float x;
         float y;
@@ -45,6 +46,7 @@ Path::Path(): current_waypoint(0), waypoint_next_second_counter(0) {
     for(int i=0; i<3600; i++){
         waypoints[i] = WayPoint(0,0);
     }
+    waypoint_next_second = WayPoint(0,0);
 }
 
 void Path::addWaypoint(const WayPoint& waypoint){
