@@ -11,6 +11,7 @@
 #define INERCIAL_NAV_H
 class Vector2D{
     public:
+        Vector2D(): x(0), y(0) {}
         Vector2D(float x, float y): x(x), y(y) {}
         float x;
         float y;
@@ -125,9 +126,9 @@ class InercialNav{
         Vector2D vectorTraveled();
         void moveForward(float distance);
         void moveBackward(float distance);
-        void rotateLeft(float angle);
-        void rotateRight(float angle);
-        void rotate(float angle);
+        void rotateLeft(int angle);
+        void rotateRight(int angle);
+        void rotate(int angle);
         void home();
         void travelToVector(const Vector2D& vector);
         double calcAngleDeg(const Vector2D& vector);
@@ -139,14 +140,15 @@ class InercialNav{
         void sweepMove();
         void sweepMoveRandom();
         void hover();
+        void randomHover();
         void dummySweep();
 
     private:
         MPU6050 mpu;
         float current_rotation_pitch;
         unsigned long timer;
-        float current_angle_x;
-        float previous_angle_x;
+        int current_angle_x;
+        int previous_angle_x;
         float total_angle_x;
         float acceleration_x;
         float acceleration_y;
@@ -274,7 +276,8 @@ Vector2D InercialNav::vectorTraveled(){
   return Vector2D(ax*t_squared, ay*t_squared);
 }
 
-void InercialNav::rotateLeft(float angle){
+void InercialNav::rotateLeft(int angle){
+  angle = angle % 360;
   state = ROTATING_LEFT;
   motor.rotate_left();
   while(current_angle_x > angle){
@@ -284,7 +287,8 @@ void InercialNav::rotateLeft(float angle){
   state = STOPPED;
 }
 
-void InercialNav::rotateRight(float angle){
+void InercialNav::rotateRight(int angle){
+  angle = angle % 360;
   state = ROTATING_RIGHT;
   motor.rotate_right();
   while(current_angle_x < angle){
@@ -294,7 +298,7 @@ void InercialNav::rotateRight(float angle){
   state = STOPPED;
 }
 
-void InercialNav::rotate(float angle){
+void InercialNav::rotate(int angle){
   if(angle > current_angle_x){
     rotateLeft(angle);
   }else{
@@ -490,6 +494,12 @@ void InercialNav::dummySweep(){
 void InercialNav::hover(){
   hover_motor.hover();
   sweep();
+  hover_motor.hover_stop();
+}
+
+void InercialNav::randomHover(){
+  hover_motor.hover();
+  dummySweep();
   hover_motor.hover_stop();
 }
 
