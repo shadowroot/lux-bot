@@ -121,6 +121,7 @@ enum Movement{
 class InercialNav{
     public:
         InercialNav(int update_rate_ms=100);
+        InercialNav(LRMotor& motor,HoverMotor& hover_motor, BrushMotor& brush_motor, int update_rate_ms=100);
         void setup_hook();
         void loop_hook();
         Vector2D vectorTraveled();
@@ -186,6 +187,16 @@ InercialNav::InercialNav(int update_rate_ms):
   max_sweep_time(3600000){
     time_delta = update_rate_ms/1000;
     t_squared = time_delta*time_delta;
+    motor.setup_hook();
+    hover_motor.setup_hook();
+    brush_motor.setup_hook();
+}
+
+InercialNav::InercialNav(LRMotor& motor, HoverMotor& hover_motor, BrushMotor& brush_motor, int update_rate_ms): 
+  mpu(Wire), update_rate_ms(update_rate_ms), minimal_move_distance(0.1), stuck_front_left(12, "front_left"), stuck_front_right(13, "front_right"),
+  max_sweep_time(3600000), motor(motor), hover_motor(hover_motor), brush_motor(brush_motor){
+    time_delta = update_rate_ms/1000;
+    t_squared = time_delta*time_delta;
 }
 
 void InercialNav::setup_hook(){
@@ -211,9 +222,6 @@ void InercialNav::setup_hook(){
     #ifdef SWITCH_FRONT_RIGHT_USE
       stuck_front_right.setup_hook();
     #endif
-    motor.setup_hook();
-    hover_motor.setup_hook();
-    brush_motor.setup_hook();
 }
 
 void InercialNav::loop_hook(){
@@ -477,6 +485,7 @@ void InercialNav::sweepMove(){
 }
 
 void InercialNav::sweepMoveRandom(){
+  //random move
   while(detectStuck() == 0){
     moveForward(minimal_move_distance);
   }

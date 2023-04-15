@@ -8,9 +8,13 @@
 
 class CMDS{
     public:
-        CMDS(){}
+        CMDS(): inercial_nav(lr_motor,  hover_motor, brush_motor){}
         void setup_hook(void) {
             Serial.begin(115200);
+            
+            lr_motor.setup_hook();
+            hover_motor.setup_hook();
+            brush_motor.setup_hook();
         }
 
         void loop_hook(void) {
@@ -26,9 +30,28 @@ class CMDS{
                 Serial, 
                 pack(&inercial_nav, &InercialNav::rotateRight), F("rotateRight: Rotate bot right. @angle : Value in degrees")
                 );
+            interface(
+                Serial, 
+                pack(&brush_motor, &BrushMotor::brush), F("Run brush motor. @speed : Value in 0-255")
+                );
+            interface(
+                Serial, 
+                pack(&brush_motor, &BrushMotor::stop), F("Stop brush motor.")
+                );
+            interface(
+                Serial, 
+                pack(&hover_motor, &HoverMotor::hover), F("Run hover motor. @speed : Value in 0-255")
+                );
+            interface(
+                Serial, 
+                pack(&hover_motor, &HoverMotor::hover_stop), F("Stop hover motor.")
+                );
         }
     private:
         InercialNav inercial_nav;
+        LRMotor lr_motor;
+        BrushMotor brush_motor;
+        HoverMotor hover_motor;
 };
 
 #endif //CMDS_H
