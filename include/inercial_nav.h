@@ -35,13 +35,16 @@ class Path{
         void addVector(const Vector2D& vector);
         Vector2D planPath(const WayPoint& waypoint);
         WayPoint getCurrentWaypoint();
+        WayPoint notSweepedWaypoint();
     private:
         int current_waypoint;
+        int waypoint_counter;
         //3600 seconds of waypoints
         WayPoint waypoints[3600];
         //100 ms
         WayPoint waypoint_next_second;
         int waypoint_next_second_counter;
+        Vector2D current_vector;
 };
 
 Path::Path(): current_waypoint(0), waypoint_next_second_counter(0) {
@@ -57,6 +60,7 @@ void Path::addWaypoint(const WayPoint& waypoint){
   if(current_waypoint >= 3600){
     current_waypoint = 0;
   }
+  waypoint_counter++;
 }
 
 void Path::addVector(const Vector2D& vector){
@@ -75,6 +79,30 @@ WayPoint Path::getCurrentWaypoint(){
 Vector2D Path::planPath(const WayPoint& waypoint){
   Vector2D vector(waypoint.x - waypoints[current_waypoint-1].x, waypoint.y - waypoints[current_waypoint-1].y);
   return vector;
+}
+
+WayPoint Path::notSweepedWaypoint(){
+  WayPoint wp_max_x;
+  WayPoint wp_max_y;
+  WayPoint prev_max_x;
+  WayPoint prev_max_y;
+  int start_idx = 0;
+  WayPoint current;
+  if(waypoint_counter >= 3600){
+    start_idx = waypoint_counter%3600;
+  }
+  for(int i=0; i<3600; i++){
+    current = waypoints[start_idx+i-1];
+    if(current.x > wp_max_x.x){
+      prev_max_x = wp_max_x;
+      wp_max_x = current;
+    }
+    if(current.y > wp_max_y.y){
+      prev_max_y = wp_max_y;
+      wp_max_y = current;
+    }
+  }
+  return WayPoint(prev_max_x.x, current.y);
 }
 
 enum Movement{
@@ -108,11 +136,15 @@ class InercialNav{
         int detectSwitchStuck();
         void stuckAvoidance();
         void sweep();
+        void sweepMove();
+        void sweepMoveRandom();
         void hover();
+        void dummySweep();
+
     private:
         MPU6050 mpu;
         float current_rotation_pitch;
-        float timer;
+        unsigned long timer;
         float current_angle_x;
         float previous_angle_x;
         float total_angle_x;
@@ -132,6 +164,8 @@ class InercialNav{
         float current_angle;
         Movement state;
         int previous_stuck;
+        unsigned long sweep_start;
+        unsigned long max_sweep_time;
 
         Path path;
         LRMotor motor;
@@ -145,7 +179,9 @@ class InercialNav{
         #endif
 };
 
-InercialNav::InercialNav(int update_rate_ms): mpu(Wire), update_rate_ms(update_rate_ms), minimal_move_distance(0.1), stuck_front_left(12, "front_left"), stuck_front_right(13, "front_right"){
+InercialNav::InercialNav(int update_rate_ms): 
+  mpu(Wire), update_rate_ms(update_rate_ms), minimal_move_distance(0.1), stuck_front_left(12, "front_left"), stuck_front_right(13, "front_right"),
+  max_sweep_time(3600000){
     time_delta = update_rate_ms/1000;
     t_squared = time_delta*time_delta;
 }
@@ -240,7 +276,7 @@ Vector2D InercialNav::vectorTraveled(){
 
 void InercialNav::rotateLeft(float angle){
   state = ROTATING_LEFT;
-  motor.rotate_left(255);
+  motor.rotate_left();
   while(current_angle_x > angle){
     loop_hook();
   }
@@ -250,7 +286,7 @@ void InercialNav::rotateLeft(float angle){
 
 void InercialNav::rotateRight(float angle){
   state = ROTATING_RIGHT;
-  motor.rotate_right(255);
+  motor.rotate_right();
   while(current_angle_x < angle){
     loop_hook();
   }
@@ -268,7 +304,7 @@ void InercialNav::rotate(float angle){
 
 void InercialNav::moveForward(float distance){
   state = MOVING_FORWARD;
-  motor.move_forward(255);
+  motor.move_forward();
   current_distance = 0;
   previous_distance = 0;
   while(current_distance < distance){
@@ -313,7 +349,7 @@ void InercialNav::stuckAvoidance(){
 
 void InercialNav::moveBackward(float distance){
   state = MOVING_BACKWARD;
-  motor.move_backward(255);
+  motor.move_backward();
   float current_distance = 0;
   while(current_distance < distance){
     loop_hook();
@@ -404,8 +440,50 @@ int InercialNav::detectSwitchStuck(){
 }
 
 void InercialNav::sweep(){
+  /**
+   * Do
+   * +======> 
+   * |
+   * |
+   * |
+   * +=====
+  */
+ sweep_start = millis();
+  while((millis() - sweep_start) < max_sweep_time){
+    sweepMove();
+    sweepMove();
+    sweepMove();
+    sweepMove();
+    Vector2D new_vector = path.planPath(path.notSweepedWaypoint());
+    travelToVector(new_vector);
+  }
+}
+
+void InercialNav::sweepMove(){
+  /**
+   * Do
+   *
+   * |
+   * +=====
+  */
   while(detectStuck() == 0){
     moveForward(minimal_move_distance);
+  }
+  rotateRight(current_angle_x + 90);
+}
+
+void InercialNav::sweepMoveRandom(){
+  while(detectStuck() == 0){
+    moveForward(minimal_move_distance);
+  }
+  rotateRight(random() % 360);
+}
+
+void InercialNav::dummySweep(){
+  sweep_start = millis();
+  while ((millis() - sweep_start) < max_sweep_time)
+  {
+    sweepMoveRandom();
   }
 }
 

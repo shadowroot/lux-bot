@@ -19,40 +19,40 @@ public:
     motor_stop();
   }
   
-  void move_left(int speed){
+  void move_left(int speed=255){
     motor_right.setSpeed(speed);
     motor_right.run(FORWARD);
     motor_left.run(RELEASE);
   }
 
-  void move_right(int speed){
+  void move_right(int speed=255){
     motor_left.setSpeed(speed);
     motor_left.run(FORWARD);
     motor_right.run(RELEASE);
   }
 
-  void move_forward(int speed){
+  void move_forward(int speed=255){
     motor_right.setSpeed(speed);
     motor_left.setSpeed(speed);
     motor_right.run(FORWARD);
     motor_left.run(FORWARD);
   }
 
-  void move_backward(int speed){
+  void move_backward(int speed=255){
     motor_right.setSpeed(speed);
     motor_left.setSpeed(speed);
     motor_right.run(BACKWARD);
     motor_left.run(BACKWARD);
   }
 
-  void rotate_left(int speed){
+  void rotate_left(int speed=255){
     motor_right.setSpeed(speed);
     motor_left.setSpeed(speed);
     motor_right.run(FORWARD);
     motor_left.run(BACKWARD);
   }
 
-  void rotate_right(int speed){
+  void rotate_right(int speed=255){
     motor_right.setSpeed(speed);
     motor_left.setSpeed(speed);
     motor_right.run(BACKWARD);
