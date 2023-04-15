@@ -107,6 +107,8 @@ class InercialNav{
         int detectStuck();
         int detectSwitchStuck();
         void stuckAvoidance();
+        void sweep();
+        void hover();
     private:
         MPU6050 mpu;
         float current_rotation_pitch;
@@ -133,6 +135,8 @@ class InercialNav{
 
         Path path;
         LRMotor motor;
+        HoverMotor hover_motor;
+        BrushMotor brush_motor;
         #ifdef SWITCH_FRONT_LEFT_USE
         Stuck stuck_front_left; //1
         #endif
@@ -169,6 +173,9 @@ void InercialNav::setup_hook(){
     #ifdef SWITCH_FRONT_RIGHT_USE
       stuck_front_right.setup_hook();
     #endif
+    motor.setup_hook();
+    hover_motor.setup_hook();
+    brush_motor.setup_hook();
 }
 
 void InercialNav::loop_hook(){
@@ -184,30 +191,30 @@ void InercialNav::loop_hook(){
     acceleration_z = mpu.getAccZ();
 
     Serial.print(F("LOG:TEMPERATURE: "));Serial.println(mpu.getTemp());
-    Serial.print(F("LOG:ACCEL  X: "));Serial.print(acceleration_x);
+    Serial.print(F("ACCEL  X: "));Serial.print(acceleration_x);
     Serial.print("\tY: ");Serial.print(acceleration_y);
     Serial.print("\tZ: ");Serial.println(acceleration_z);
   
-    Serial.print(F("LOG:GYRO      X: "));Serial.print(mpu.getGyroX());
+    Serial.print(F("GYRO      X: "));Serial.print(mpu.getGyroX());
     Serial.print("\tY: ");Serial.print(mpu.getGyroY());
     Serial.print("\tZ: ");Serial.println(mpu.getGyroZ());
   
-    Serial.print(F("LOG:ACC ANGLE X: "));Serial.print(mpu.getAccAngleX());
+    Serial.print(F("ACC ANGLE X: "));Serial.print(mpu.getAccAngleX());
     Serial.print("\tY: ");Serial.println(mpu.getAccAngleY());
     
     //Angles in degrees
     previous_timer = timer;
     previous_angle_x = current_angle_x;
     current_angle_x = mpu.getAngleX();
-    total_angle_x = current_angle_x+previous_angle_x;
+    //total_angle_x = current_angle_x+previous_angle_x;
     current_distance = calcDistance(vectorTraveled());
 
     stuckAvoidance();
 
-    Serial.print(F("LOG:ANGLE     X: "));Serial.print(current_angle_x);
+    Serial.print(F("ANGLE     X: "));Serial.print(current_angle_x);
     Serial.print("\tY: ");Serial.print(mpu.getAngleY());
     Serial.print("\tZ: ");Serial.println(mpu.getAngleZ());
-    Serial.println(F("=====================================================\n"));
+    //Serial.println(F("=====================================================\n"));
     
     previous_distance = current_distance;
     previous_angle = current_angle_x;
@@ -288,11 +295,13 @@ void InercialNav::stuckAvoidance(){
         rotate(current_angle_x - 90);
         break;
       case 3:
+        //try move backward
         moveBackward(minimal_move_distance);
         break;
       //default:
       //  break;
       case 4:
+        //try move forward
         moveForward(minimal_move_distance);
         break;
     }
@@ -350,6 +359,7 @@ int InercialNav::detectStuck(){
   {
   case MOVING_FORWARD:
     if(previous_distance == current_distance){
+      //rotate the same way
       stuck = 1;
     }
     break;
@@ -371,7 +381,8 @@ int InercialNav::detectStuck(){
   default:
     break;
   }
-  if(previous_stuck > 0){
+  if(previous_stuck >= 3){
+    //was stucked before? - avoid being stucked in different way
     stuck += 1;
   }
   return stuck;
@@ -381,7 +392,7 @@ int InercialNav::detectSwitchStuck(){
   int stuck = 0;
   #ifdef SWITCH_FRONT_LEFT_USE
     if(stuck_front_left.is_stuck()){
-      stuck += 1;
+      stuck = 1;
     }
   #endif
   #ifdef SWITCH_FRONT_RIGHT_USE
@@ -390,6 +401,18 @@ int InercialNav::detectSwitchStuck(){
     }
   #endif
   return stuck;
+}
+
+void InercialNav::sweep(){
+  while(detectStuck() == 0){
+    moveForward(minimal_move_distance);
+  }
+}
+
+void InercialNav::hover(){
+  hover_motor.hover();
+  sweep();
+  hover_motor.hover_stop();
 }
 
 #endif // INERCIAL_NAV_H

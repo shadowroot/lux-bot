@@ -10,7 +10,7 @@ class CMDS{
     public:
         CMDS(){}
         void setup_hook(void) {
-            Serial.begin(9600);
+            Serial.begin(115200);
         }
 
         void loop_hook(void) {

@@ -15,7 +15,7 @@ class LRMotor {
 public:
   LRMotor(const int left_motor_channel=1, const int right_motor_channel=2): motor_left(left_motor_channel), motor_right(right_motor_channel) {}
   
-  void motor_setup_hook(){
+  void setup_hook(){
     motor_stop();
   }
   
@@ -73,7 +73,7 @@ class BrushMotor{
   public:
     BrushMotor(const int motor_channel=3): brushMotor(motor_channel) {}
     
-    void motor_setup_hook(){
+    void setup_hook(){
       stop();
     }
     
@@ -93,7 +93,7 @@ class HoverMotor{
   public:
     HoverMotor(const int motor_channel=4): hoverMotor(motor_channel) {}
     
-    void motor_setup_hook(){
+    void setup_hook(){
       hover_stop();
     }
     

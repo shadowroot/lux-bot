@@ -22,7 +22,7 @@ class Sonar {
             return distance;
         }
         void print_distance(){
-            Serial.print("LOG:Distance: ");
+            Serial.print("LOG: Distance: ");
             Serial.print(get_distance());
             Serial.println(" cm");
         }
