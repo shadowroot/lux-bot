@@ -77,6 +77,14 @@ Vector2D Path::planPath(const WayPoint& waypoint){
   return vector;
 }
 
+enum Movement{
+    MOVING_FORWARD,
+    MOVING_BACKWARD,
+    ROTATING_LEFT,
+    ROTATING_RIGHT,
+    STOPPED
+};
+
 /**
  * @brief Inercial Navigation class for MPU6050 and logging into Serial.
  * 
@@ -97,6 +105,7 @@ class InercialNav{
         double calcAngleDeg(const Vector2D& vector);
         double calcDistance(const Vector2D& vector);
         int detectStuck();
+        int detectSwitchStuck();
         void stuckAvoidance();
     private:
         MPU6050 mpu;
@@ -115,6 +124,13 @@ class InercialNav{
         float time_delta;
         float t_squared;
         float minimal_move_distance;
+        float current_distance;
+        float previous_distance;
+        float previous_angle;
+        float current_angle;
+        Movement state;
+        int previous_stuck;
+
         Path path;
         LRMotor motor;
         #ifdef SWITCH_FRONT_LEFT_USE
@@ -184,12 +200,17 @@ void InercialNav::loop_hook(){
     previous_angle_x = current_angle_x;
     current_angle_x = mpu.getAngleX();
     total_angle_x = current_angle_x+previous_angle_x;
+    current_distance = calcDistance(vectorTraveled());
+
+    stuckAvoidance();
 
     Serial.print(F("LOG:ANGLE     X: "));Serial.print(current_angle_x);
     Serial.print("\tY: ");Serial.print(mpu.getAngleY());
     Serial.print("\tZ: ");Serial.println(mpu.getAngleZ());
     Serial.println(F("=====================================================\n"));
     
+    previous_distance = current_distance;
+    previous_angle = current_angle_x;
     //add next vector to waypoints
     path.addVector(vectorTraveled());
 
@@ -211,19 +232,23 @@ Vector2D InercialNav::vectorTraveled(){
 }
 
 void InercialNav::rotateLeft(float angle){
+  state = ROTATING_LEFT;
   motor.rotate_left(255);
   while(current_angle_x > angle){
     loop_hook();
   }
   motor.motor_stop();
+  state = STOPPED;
 }
 
 void InercialNav::rotateRight(float angle){
+  state = ROTATING_RIGHT;
   motor.rotate_right(255);
   while(current_angle_x < angle){
     loop_hook();
   }
   motor.motor_stop();
+  state = STOPPED;
 }
 
 void InercialNav::rotate(float angle){
@@ -235,23 +260,25 @@ void InercialNav::rotate(float angle){
 }
 
 void InercialNav::moveForward(float distance){
+  state = MOVING_FORWARD;
   motor.move_forward(255);
-  float current_distance = 0;
+  current_distance = 0;
+  previous_distance = 0;
   while(current_distance < distance){
     stuckAvoidance();
     loop_hook();
+    previous_distance = current_distance;
     current_distance += calcDistance(vectorTraveled());
   }
   motor.motor_stop();
+  state = STOPPED;
 }
 
 void InercialNav::stuckAvoidance(){
+    Movement current_state = state;
     int stuck = detectStuck();
     switch (stuck)
     {
-      case 3:
-        moveBackward(minimal_move_distance);
-        break;
       case 1:
         //try rotate left
         rotate(current_angle_x + 90);
@@ -260,14 +287,23 @@ void InercialNav::stuckAvoidance(){
         //try rotate right
         rotate(current_angle_x - 90);
         break;
+      case 3:
+        moveBackward(minimal_move_distance);
+        break;
       //default:
       //  break;
+      case 4:
+        moveForward(minimal_move_distance);
+        break;
     }
+    state = current_state;
+    previous_stuck = stuck;
 }
 
 
 
 void InercialNav::moveBackward(float distance){
+  state = MOVING_BACKWARD;
   motor.move_backward(255);
   float current_distance = 0;
   while(current_distance < distance){
@@ -275,6 +311,7 @@ void InercialNav::moveBackward(float distance){
     current_distance += calcDistance(vectorTraveled());
   }
   motor.motor_stop();
+  state = STOPPED;
 }
 
 double InercialNav::calcDistance(const Vector2D& vector){
@@ -307,6 +344,40 @@ void InercialNav::travelToVector(const Vector2D& vector){
 }
 
 int InercialNav::detectStuck(){
+  int stuck = 0;
+  stuck = detectSwitchStuck();
+  switch (state)
+  {
+  case MOVING_FORWARD:
+    if(previous_distance == current_distance){
+      stuck = 1;
+    }
+    break;
+  case MOVING_BACKWARD:
+    if(previous_distance == current_distance){
+      stuck = 1;
+    }
+    break;
+  case ROTATING_LEFT:
+    if(previous_angle == current_angle_x){
+      stuck = 3;
+    }
+    break;
+  case ROTATING_RIGHT:
+    if(previous_angle == current_angle_x){
+      stuck = 3;
+    }
+    break;
+  default:
+    break;
+  }
+  if(previous_stuck > 0){
+    stuck += 1;
+  }
+  return stuck;
+}
+
+int InercialNav::detectSwitchStuck(){
   int stuck = 0;
   #ifdef SWITCH_FRONT_LEFT_USE
     if(stuck_front_left.is_stuck()){
