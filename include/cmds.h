@@ -11,7 +11,7 @@ class CMDS{
         CMDS(): inercial_nav(lr_motor,  hover_motor, brush_motor){}
         void setup_hook(void) {
             Serial.begin(115200);
-            
+            Serial.println(F("LOG: Starting..."));
             lr_motor.setup_hook();
             hover_motor.setup_hook();
             brush_motor.setup_hook();
@@ -45,6 +45,18 @@ class CMDS{
             interface(
                 Serial, 
                 pack(&hover_motor, &HoverMotor::hover_stop), F("Stop hover motor.")
+                );
+            interface(
+                Serial, 
+                pack(&inercial_nav, &InercialNav::randomHover), F("randomHover: Hover bot in random direction.")
+                );
+            interface(
+                Serial, 
+                pack(&inercial_nav, &InercialNav::randomSweep), F("randomSweep: Sweep bot in random direction.")
+                );
+            interface(
+                Serial, 
+                pack(&inercial_nav, &InercialNav::stop), F("Stop: Stop bot.")
                 );
         }
     private:

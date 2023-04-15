@@ -142,7 +142,13 @@ class InercialNav{
         void sweepMoveRandom();
         void hover();
         void randomHover();
-        void dummySweep();
+        void randomSweep();
+        void stop(){
+            motor.motor_stop();
+            hover_motor.hover_stop();
+            brush_motor.stop();
+            state = STOPPED;
+        }
 
     private:
         MPU6050 mpu;
@@ -251,7 +257,7 @@ void InercialNav::loop_hook(){
     //Angles in degrees
     previous_timer = timer;
     previous_angle_x = current_angle_x;
-    current_angle_x = mpu.getAngleX();
+    current_angle_x = (int) mpu.getAngleX();
     //total_angle_x = current_angle_x+previous_angle_x;
     current_distance = calcDistance(vectorTraveled());
 
@@ -492,7 +498,7 @@ void InercialNav::sweepMoveRandom(){
   rotateRight(random() % 360);
 }
 
-void InercialNav::dummySweep(){
+void InercialNav::randomSweep(){
   sweep_start = millis();
   while ((millis() - sweep_start) < max_sweep_time)
   {
@@ -508,7 +514,7 @@ void InercialNav::hover(){
 
 void InercialNav::randomHover(){
   hover_motor.hover();
-  dummySweep();
+  randomSweep();
   hover_motor.hover_stop();
 }
 
