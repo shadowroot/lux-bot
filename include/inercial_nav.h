@@ -9,6 +9,10 @@
 
 #ifndef INERCIAL_NAV_H
 #define INERCIAL_NAV_H
+
+#define INERCIAL_NAV_DEBUG 1
+#define INERCIAL_NAV_POINTS 100
+#define UPDATE_NAV_INTERVAL 1000
 class Vector2D{
     public:
         Vector2D(): x(0), y(0) {}
@@ -41,15 +45,17 @@ class Path{
         int current_waypoint;
         int waypoint_counter;
         //3600 seconds of waypoints
-        WayPoint waypoints[3600];
+        WayPoint waypoints[INERCIAL_NAV_POINTS];
         //100 ms
         WayPoint waypoint_next_second;
+        WayPoint min_point;
+        WayPoint max_point;
         int waypoint_next_second_counter;
         Vector2D current_vector;
 };
 
 Path::Path(): current_waypoint(0), waypoint_next_second_counter(0) {
-    for(int i=0; i<3600; i++){
+    for(int i=0; i<INERCIAL_NAV_POINTS; i++){
         waypoints[i] = WayPoint(0,0);
     }
     waypoint_next_second = WayPoint(0,0);
@@ -58,7 +64,7 @@ Path::Path(): current_waypoint(0), waypoint_next_second_counter(0) {
 void Path::addWaypoint(const WayPoint& waypoint){
   waypoints[current_waypoint] = waypoint;
   current_waypoint++;
-  if(current_waypoint >= 3600){
+  if(current_waypoint >= INERCIAL_NAV_POINTS){
     current_waypoint = 0;
   }
   waypoint_counter++;
@@ -89,10 +95,10 @@ WayPoint Path::notSweepedWaypoint(){
   WayPoint prev_max_y;
   int start_idx = 0;
   WayPoint current;
-  if(waypoint_counter >= 3600){
-    start_idx = waypoint_counter%3600;
+  if(waypoint_counter >= INERCIAL_NAV_POINTS){
+    start_idx = waypoint_counter%INERCIAL_NAV_POINTS;
   }
-  for(int i=0; i<3600; i++){
+  for(int i=0; i<INERCIAL_NAV_POINTS; i++){
     current = waypoints[start_idx+i-1];
     if(current.x > wp_max_x.x){
       prev_max_x = wp_max_x;
@@ -103,7 +109,8 @@ WayPoint Path::notSweepedWaypoint(){
       wp_max_y = current;
     }
   }
-  return WayPoint(prev_max_x.x, current.y);
+  //probably wrong
+  return WayPoint(current.x - current_vector.x, current.y - current_vector.y);
 }
 
 enum Movement{
@@ -120,8 +127,8 @@ enum Movement{
 */
 class InercialNav{
     public:
-        InercialNav(int update_rate_ms=100);
-        InercialNav(LRMotor& motor,HoverMotor& hover_motor, BrushMotor& brush_motor, int update_rate_ms=100);
+        InercialNav(int update_rate_ms=UPDATE_NAV_INTERVAL);
+        InercialNav(LRMotor& motor,HoverMotor& hover_motor, BrushMotor& brush_motor, int update_rate_ms=UPDATE_NAV_INTERVAL);
         void setup_hook();
         void loop_hook();
         Vector2D vectorTraveled();
@@ -149,6 +156,7 @@ class InercialNav{
             brush_motor.stop();
             state = STOPPED;
         }
+        void mpu6050_handler();
 
     private:
         MPU6050 mpu;
@@ -190,7 +198,7 @@ class InercialNav{
 
 InercialNav::InercialNav(int update_rate_ms): 
   mpu(Wire), update_rate_ms(update_rate_ms), minimal_move_distance(0.1), stuck_front_left(12, "front_left"), stuck_front_right(13, "front_right"),
-  max_sweep_time(3600000){
+  max_sweep_time(3600000), timer(0){
     time_delta = update_rate_ms/1000;
     t_squared = time_delta*time_delta;
     motor.setup_hook();
@@ -200,18 +208,18 @@ InercialNav::InercialNav(int update_rate_ms):
 
 InercialNav::InercialNav(LRMotor& motor, HoverMotor& hover_motor, BrushMotor& brush_motor, int update_rate_ms): 
   mpu(Wire), update_rate_ms(update_rate_ms), minimal_move_distance(0.1), stuck_front_left(12, "front_left"), stuck_front_right(13, "front_right"),
-  max_sweep_time(3600000), motor(motor), hover_motor(hover_motor), brush_motor(brush_motor){
+  max_sweep_time(3600000), motor(motor), hover_motor(hover_motor), brush_motor(brush_motor), timer(0){
     time_delta = update_rate_ms/1000;
     t_squared = time_delta*time_delta;
+    motor.setup_hook();
+    hover_motor.setup_hook();
+    brush_motor.setup_hook();
 }
 
 void InercialNav::setup_hook(){
     Wire.begin();
     //not much sense, but it's init ... I'll leave it for now ... It's in constructor.
     //Default setup 2g and 500 deg/s
-    MPU6050 mpu(Wire);
-
-    long timer = 0;
     
     byte status = mpu.begin();
     Serial.print(F("MPU6050 status: "));
@@ -220,8 +228,10 @@ void InercialNav::setup_hook(){
     
     Serial.println(F("Calculating offsets, do not move MPU6050"));
     delay(1000);
-    mpu.calcOffsets(true,true); // gyro and accelero
-    Serial.println("Done!\n");
+    //mpu.upsideDownMounting = true; // uncomment this line if the MPU6050 is mounted upside-down
+    mpu.calcOffsets(true,true); // gyro and accelerometer
+    //mpu.calcOffsets();
+    Serial.println("Done!");
     #ifdef SWITCH_FRONT_LEFT_USE
       stuck_front_left.setup_hook();
     #endif
@@ -232,50 +242,56 @@ void InercialNav::setup_hook(){
 
 void InercialNav::loop_hook(){
   mpu.update();
-  //Accelerometer values
-  //10m/s^2
-  // 0 - -2g
-  // 4 - +2g
-  //position updater and if position job is running, then functions for that.
+
   if((millis() - timer) > update_rate_ms){ // update based on update_rate_ms
-    acceleration_x = mpu.getAccX();
-    acceleration_y = mpu.getAccY();
-    acceleration_z = mpu.getAccZ();
-
-    Serial.print(F("LOG:TEMPERATURE: "));Serial.println(mpu.getTemp());
-    Serial.print(F("ACCEL  X: "));Serial.print(acceleration_x);
-    Serial.print("\tY: ");Serial.print(acceleration_y);
-    Serial.print("\tZ: ");Serial.println(acceleration_z);
-  
-    Serial.print(F("GYRO      X: "));Serial.print(mpu.getGyroX());
-    Serial.print("\tY: ");Serial.print(mpu.getGyroY());
-    Serial.print("\tZ: ");Serial.println(mpu.getGyroZ());
-  
-    Serial.print(F("ACC ANGLE X: "));Serial.print(mpu.getAccAngleX());
-    Serial.print("\tY: ");Serial.println(mpu.getAccAngleY());
-    
-    //Angles in degrees
-    previous_timer = timer;
-    previous_angle_x = current_angle_x;
-    current_angle_x = (int) mpu.getAngleX();
-    //total_angle_x = current_angle_x+previous_angle_x;
-    current_distance = calcDistance(vectorTraveled());
-
+    #ifdef MPU_6050_USE
+    mpu6050_handler();
+    #endif
     stuckAvoidance();
-
-    Serial.print(F("ANGLE     X: "));Serial.print(current_angle_x);
-    Serial.print("\tY: ");Serial.print(mpu.getAngleY());
-    Serial.print("\tZ: ");Serial.println(mpu.getAngleZ());
-    //Serial.println(F("=====================================================\n"));
-    
-    previous_distance = current_distance;
-    previous_angle = current_angle_x;
     //add next vector to waypoints
     path.addVector(vectorTraveled());
 
     timer = millis();
   }
 
+}
+
+void InercialNav::mpu6050_handler(){
+  //Accelerometer values
+  //10m/s^2
+  // 0 - -2g
+  // 4 - +2g
+  //position updater and if position job is running, then functions for that.
+  acceleration_x = mpu.getAccX();
+  acceleration_y = mpu.getAccY();
+  acceleration_z = mpu.getAccZ();
+  Serial.print(F("LOG:TEMPERATURE: "));Serial.print(mpu.getTemp());
+  Serial.print(F("\tACCEL\tX: "));Serial.print(acceleration_x);
+  Serial.print("\tY: ");Serial.print(acceleration_y);
+  Serial.print("\tZ: ");Serial.print(acceleration_z);
+
+  Serial.print(F("\tGYRO\tX: "));Serial.print(mpu.getGyroX());
+  Serial.print("\tY: ");Serial.print(mpu.getGyroY());
+  Serial.print("\tZ: ");Serial.print(mpu.getGyroZ());
+
+  Serial.print(F("\tACC ANGLE\tX: "));Serial.print(mpu.getAccAngleX());
+  Serial.print("\tY: ");Serial.print(mpu.getAccAngleY());
+  
+  //Angles in degrees
+  previous_timer = timer;
+  previous_angle_x = current_angle_x;
+  current_angle_x = (int) mpu.getAngleX();
+  //total_angle_x = current_angle_x+previous_angle_x;
+  current_distance = calcDistance(vectorTraveled());
+
+  
+
+  Serial.print(F("\tANGLE\tX: "));Serial.print(current_angle_x);
+  Serial.print("\tY: ");Serial.print(mpu.getAngleY());
+  Serial.print("\tZ: ");Serial.println(mpu.getAngleZ());
+
+  previous_distance = current_distance;
+  previous_angle = current_angle_x;
 }
 
 Vector2D InercialNav::vectorTraveled(){

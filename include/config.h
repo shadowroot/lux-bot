@@ -1,5 +1,6 @@
 #include <Arduino.h>
 
+#define DEBUG 1
 #define MOTOR_SHIELD_USE 1
 #define MPU_6050_USE 1
 #define HC_SR04_USE 1

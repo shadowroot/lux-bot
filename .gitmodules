@@ -7,3 +7,9 @@
 [submodule "lib/RF433any"]
 	path = lib/RF433any
 	url = https://github.com/sebmillet/RF433any.git
+[submodule "lib/simpleRPC"]
+	path = lib/simpleRPC
+	url = https://github.com/jfjlaros/simpleRPC.git
+[submodule "lib/arduino-simple-rpc"]
+	path = lib/arduino-simple-rpc
+	url = https://github.com/jfjlaros/arduino-simple-rpc.git
