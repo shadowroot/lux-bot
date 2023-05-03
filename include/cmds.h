@@ -27,44 +27,17 @@ class CMDS{
             }
             interface(
                 Serial,
-                pack(&inercial_nav, &InercialNav::moveForward), F("moveForward: Move bot forward. @distance : Value in m")
-            );
-            interface(
-                Serial, 
-                pack(&inercial_nav, &InercialNav::rotateLeft), F("rotateLeft: Rotate bot left. @angle : Value in degrees")
-            );
-            interface(
-                Serial, 
-                pack(&inercial_nav, &InercialNav::rotateRight), F("rotateRight: Rotate bot right. @angle : Value in degrees")
-                );
-            interface(
-                Serial, 
-                pack(&brush_motor, &BrushMotor::brush), F("Run brush motor. @speed : Value in 0-255")
-                );
-            interface(
-                Serial, 
-                pack(&brush_motor, &BrushMotor::stop), F("Stop brush motor.")
-                );
-            interface(
-                Serial, 
-                pack(&hover_motor, &HoverMotor::hover), F("Run hover motor. @speed : Value in 0-255")
-                );
-            interface(
-                Serial, 
-                pack(&hover_motor, &HoverMotor::hover_stop), F("Stop hover motor.")
-                );
-            interface(
-                Serial, 
-                pack(&inercial_nav, &InercialNav::randomHover), F("randomHover: Hover bot in random direction.")
-                );
-            interface(
-                Serial, 
-                pack(&inercial_nav, &InercialNav::randomSweep), F("randomSweep: Sweep bot in random direction.")
-                );
-            interface(
-                Serial, 
+                pack(&inercial_nav, &InercialNav::moveForward), F("moveForward: Move bot forward. @distance : Value in m"),
+                pack(&inercial_nav, &InercialNav::rotateLeft), F("rotateLeft: Rotate bot left. @angle : Value in degrees"),
+                pack(&inercial_nav, &InercialNav::rotateRight), F("rotateRight: Rotate bot right. @angle : Value in degrees"),
+                pack(&brush_motor, &BrushMotor::brush), F("Run brush motor. @speed : Value in 0-255"),
+                pack(&brush_motor, &BrushMotor::stop), F("Stop brush motor."),
+                pack(&hover_motor, &HoverMotor::hover), F("Run hover motor. @speed : Value in 0-255"),
+                pack(&hover_motor, &HoverMotor::hover_stop), F("Stop hover motor."),
+                pack(&inercial_nav, &InercialNav::randomHover), F("randomHover: Hover bot in random direction."),
+                pack(&inercial_nav, &InercialNav::randomSweep), F("randomSweep: Sweep bot in random direction."),
                 pack(&inercial_nav, &InercialNav::stop), F("Stop: Stop bot.")
-                );
+            );
         }
     private:
         InercialNav inercial_nav;

@@ -222,16 +222,23 @@ void InercialNav::setup_hook(){
     //Default setup 2g and 500 deg/s
     
     byte status = mpu.begin();
-    Serial.print(F("MPU6050 status: "));
-    Serial.println(status);
+    if(DEBUG){
+      Serial.print(F("MPU6050 status: "));
+      Serial.println(status);
+    }
     while(status!=0){ } // stop everything if could not connect to MPU6050
     
-    Serial.println(F("Calculating offsets, do not move MPU6050"));
+    if(DEBUG){
+      Serial.println(F("Calculating offsets, do not move MPU6050"));
+    }
     delay(1000);
     //mpu.upsideDownMounting = true; // uncomment this line if the MPU6050 is mounted upside-down
     mpu.calcOffsets(true,true); // gyro and accelerometer
     //mpu.calcOffsets();
-    Serial.println("Done!");
+    if(DEBUG){
+      Serial.println(F("Done!"));
+    }
+    
     #ifdef SWITCH_FRONT_LEFT_USE
       stuck_front_left.setup_hook();
     #endif
@@ -250,7 +257,6 @@ void InercialNav::loop_hook(){
     stuckAvoidance();
     //add next vector to waypoints
     path.addVector(vectorTraveled());
-
     timer = millis();
   }
 
@@ -265,18 +271,19 @@ void InercialNav::mpu6050_handler(){
   acceleration_x = mpu.getAccX();
   acceleration_y = mpu.getAccY();
   acceleration_z = mpu.getAccZ();
-  Serial.print(F("LOG:TEMPERATURE: "));Serial.print(mpu.getTemp());
-  Serial.print(F("\tACCEL\tX: "));Serial.print(acceleration_x);
-  Serial.print("\tY: ");Serial.print(acceleration_y);
-  Serial.print("\tZ: ");Serial.print(acceleration_z);
+  if(DEBUG){
+    Serial.print(F("LOG:TEMPERATURE: "));Serial.print(mpu.getTemp());
+    Serial.print(F("\tACCEL\tX: "));Serial.print(acceleration_x);
+    Serial.print("\tY: ");Serial.print(acceleration_y);
+    Serial.print("\tZ: ");Serial.print(acceleration_z);
 
-  Serial.print(F("\tGYRO\tX: "));Serial.print(mpu.getGyroX());
-  Serial.print("\tY: ");Serial.print(mpu.getGyroY());
-  Serial.print("\tZ: ");Serial.print(mpu.getGyroZ());
+    Serial.print(F("\tGYRO\tX: "));Serial.print(mpu.getGyroX());
+    Serial.print("\tY: ");Serial.print(mpu.getGyroY());
+    Serial.print("\tZ: ");Serial.print(mpu.getGyroZ());
 
-  Serial.print(F("\tACC ANGLE\tX: "));Serial.print(mpu.getAccAngleX());
-  Serial.print("\tY: ");Serial.print(mpu.getAccAngleY());
-  
+    Serial.print(F("\tACC ANGLE\tX: "));Serial.print(mpu.getAccAngleX());
+    Serial.print("\tY: ");Serial.print(mpu.getAccAngleY());
+  }
   //Angles in degrees
   previous_timer = timer;
   previous_angle_x = current_angle_x;
@@ -285,10 +292,11 @@ void InercialNav::mpu6050_handler(){
   current_distance = calcDistance(vectorTraveled());
 
   
-
-  Serial.print(F("\tANGLE\tX: "));Serial.print(current_angle_x);
-  Serial.print("\tY: ");Serial.print(mpu.getAngleY());
-  Serial.print("\tZ: ");Serial.println(mpu.getAngleZ());
+  if(DEBUG){
+    Serial.print(F("\tANGLE\tX: "));Serial.print(current_angle_x);
+    Serial.print("\tY: ");Serial.print(mpu.getAngleY());
+    Serial.print("\tZ: ");Serial.println(mpu.getAngleZ());
+  }
 
   previous_distance = current_distance;
   previous_angle = current_angle_x;
